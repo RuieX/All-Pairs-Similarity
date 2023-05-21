@@ -1,8 +1,19 @@
 import string
 from typing import Sequence, Type, Protocol, Dict, Tuple, NamedTuple
-import nltk
-from transformers import BertTokenizer
 from tqdm import tqdm
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from string import punctuation
+
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('stopwords')
+
+# Initialize the NLTK lemmatizer and stop words
+LEMMATIZER = WordNetLemmatizer()
+STOPWORDS = set(stopwords.words('english'))
 
 
 Document: Type = Dict[str, str]
@@ -35,38 +46,23 @@ class TokenizedText(NamedTuple):
 TokenizedDocuments: Type = Sequence[TokenizedText]
 
 
-class Tokenizer(Protocol):
-    def tokenize(self, text: str) -> Tokens:
-        pass
-
-
-SUBWORD_TOKENIZER: Tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-# https://huggingface.co/docs/transformers/tokenizer_summary#subword-tokenization
-
-
 def get_tokenized_documents(docs: Documents) -> TokenizedDocuments:
     """
-    The function tokenizes each document in docs using the bert-base-uncased BertTokenizer.
+    The function tokenizes each document using NLTK.
+    (lowercase conversion, stopword removal, punctuation removal, lemmatization)
     :param docs:
     :return:
     """
-    tokenizer = SUBWORD_TOKENIZER
-    tokenized_docs = []
+    cleaned_documents = []
 
     for doc_id, doc in tqdm(docs.items(), desc="Tokenizing documents"):
-        tokenized_text = tokenize(compact_document(doc), tokenizer)
-        tokenized_docs.append(TokenizedText(text_id=doc_id, tokens=tokenized_text))
+        # Tokenize the document, remove punctuation and stop words, and lemmatize
+        tokens = lemmatization(tokenize(compact_document(doc)))
+        # Join back into a string
+        clean_doc = ' '.join(tokens)
+        cleaned_documents.append(TokenizedText(text_id=doc_id, tokens=clean_doc))
 
-    return tokenized_docs
-
-
-def compact_documents(docs: Documents) -> Sequence[str]:
-    """
-    Transforms each document into a compact form
-    :param docs:
-    :return: sequence of compacted documents
-    """
-    return [compact_document(d) for d in docs.values()]
+    return cleaned_documents
 
 
 def compact_document(doc: Document) -> str:
@@ -78,15 +74,10 @@ def compact_document(doc: Document) -> str:
     return f"{doc['title']} {doc['text']}"
 
 
-def tokenize(text: str, tokenizer: Tokenizer) -> Tokens:
-    tokens = tokenizer.tokenize(text)
+def tokenize(text: str) -> Tokens:
+    tokens = word_tokenize(text.lower())
     tokens = remove_punctuation(remove_stopwords(tokens))
     return tokens
-
-
-nltk.download("stopwords")  # https://pythonspot.com/nltk-stop-words/
-STOPWORDS = set(nltk.corpus.stopwords.words("english"))
-PUNCTUATION = set([c for c in string.punctuation])
 
 
 def remove_stopwords(tokens: Tokens) -> Tokens:
@@ -94,4 +85,8 @@ def remove_stopwords(tokens: Tokens) -> Tokens:
 
 
 def remove_punctuation(tokens: Tokens) -> Tokens:
-    return [t for t in tokens if t not in PUNCTUATION]
+    return [t for t in tokens if t not in punctuation]
+
+
+def lemmatization(tokens: Tokens) -> Tokens:
+    return [LEMMATIZER.lemmatize(token) for token in tokens]
