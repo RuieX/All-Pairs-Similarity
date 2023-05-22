@@ -1,5 +1,4 @@
-import string
-from typing import Sequence, Type, Protocol, Dict, Tuple, NamedTuple
+from typing import Sequence, Type, List, Dict, Tuple, NamedTuple
 from tqdm import tqdm
 import nltk
 from nltk.corpus import stopwords
@@ -43,7 +42,7 @@ class TokenizedText(NamedTuple):
     tokens: Tokens
 
 
-TokenizedDocuments: Type = Sequence[TokenizedText]
+TokenizedDocuments: Type = List[TokenizedText]
 
 
 def get_tokenized_documents(docs: Documents) -> TokenizedDocuments:
@@ -58,9 +57,8 @@ def get_tokenized_documents(docs: Documents) -> TokenizedDocuments:
     for doc_id, doc in tqdm(docs.items(), desc="Tokenizing documents"):
         # Tokenize the document, remove punctuation and stop words, and lemmatize
         tokens = lemmatization(tokenize(compact_document(doc)))
-        # Join back into a string
-        clean_doc = ' '.join(tokens)
-        cleaned_documents.append(TokenizedText(text_id=doc_id, tokens=clean_doc))
+        cleaned_doc = ' '.join(tokens)
+        cleaned_documents.append(TokenizedText(text_id=doc_id, tokens=cleaned_doc))
 
     return cleaned_documents
 
