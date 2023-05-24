@@ -30,6 +30,33 @@ def perform_all_pairs_docs_sim(tokenized_docs: TokenizedDocuments, threshold: fl
 #     return counts
 
 
+# TODO fare fit_transform(docs_list) di tfidfvectorizer prima perche prende tempo (stampare tempo), e salvare
+# todo count pairs
+# TODO  Get a permutation that sorts the IDF weights in ascending order
+# self._idf_permutation = np.argsort(tfidf_vectorizer.idf_)
+
+
+# bozza
+#         # Compute TF-IDF matrix and similarity matrix
+#         vectorizer = TfidfVectorizer()
+#         tfidf_matrix = vectorizer.fit_transform(corpus)
+#         similarity_matrix = cosine_similarity(tfidf_matrix)
+#
+#         # Find pairs of similar documents
+#         n_docs = len(corpus)
+#         similar_pairs = []
+#         for i, j in combinations(range(n_docs), 2):
+#             if similarity_matrix[i, j] > threshold:
+#                 similar_pairs.append((i, j))
+#
+#         # Print similar pairs
+#         for pair in similar_pairs:
+#             print(pair)
+
+# TODO fai struttura dati con risultato e tempo impiegato
+
+# TODO stampa alcune coppie
+
 def classic_all_pairs_docs_sim(docs_list: List[Tokens], threshold: float):
     count = 0
     doc_similaritis = []
@@ -51,6 +78,22 @@ def classic_all_pairs_docs_sim(docs_list: List[Tokens], threshold: float):
 # maybe use (doc_1, doc_2) pair ?
 
 
+# variante figa similseba:
+#     # Find pairs of similar documents
+#     n_docs = len(corpus)
+#     similar_pairs = []
+#     for i, j in combinations(range(n_docs), 2):
+#         if similarity_matrix[i, j] > threshold:
+#             similar_pairs.append((i, j))
+#
+#     # Print similar pairs
+#     for pair in similar_pairs:
+#         print(pair)
+
+
+
+# figo TODO
+
 def npargwhere_all_pairs_docs_sim(docs_list: List[Tokens], threshold: float):
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(docs_list)
@@ -58,14 +101,36 @@ def npargwhere_all_pairs_docs_sim(docs_list: List[Tokens], threshold: float):
     start = time.time()
     similarities = cosine_similarity(tfidf_matrix)
     np.fill_diagonal(similarities, 0.0)
-    idx_doc_similaritis = np.argwhere(similarities > threshold)
+    idx_doc_similarities = np.argwhere(similarities > threshold)
+    idx_doc_similarities = set(pair for pair in idx_doc_similarities if pair[0] != pair[1])
     end = time.time()
 
-    return [(similar.tolist(), similarities[similar[0], similar[1]])
-            for similar in idx_doc_similaritis
-            ], {'threshold': threshold,
-                'similar_doc': int(len(idx_doc_similaritis) / 2),
-                'elapsed': end - start}
+    similar_docs = [(pair, similarities[pair[0], pair[1]]) for pair in idx_doc_similarities]
+
+    return similar_docs, {'threshold': threshold,
+                          'similar_doc': len(similar_docs),
+                          'elapsed': end - start}
+
+
+def get_docIDs(similar_docs, doc_idx_to_id):
+    docid_similar_docs = []
+    for pair, similarity in similar_docs:
+        doc1_id = doc_idx_to_id[pair[0]]
+        doc2_id = doc_idx_to_id[pair[1]]
+        docid_pair = (doc1_id, doc2_id)
+        docid_similar_docs.append((docid_pair, similarity))
+    return docid_similar_docs
+
+# end TODO
+
+# TODO come usare
+    # similar_docs, metadata = npargwhere_all_pairs_docs_sim(tokenized_docs, 0.5)
+    # docid_similar_docs = get_docIDs(similar_docs, doc_idx_to_id)
+    #
+    # for pair, similarity in docid_similar_docs:
+    #     doc1_id, doc2_id = pair
+    #     print(f"Similarity between documents '{doc1_id}' and '{doc2_id}': {similarity}")
+
 
 
 # # TODO delete, Function to compute cosine similarity between each document:
