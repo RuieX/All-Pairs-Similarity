@@ -5,6 +5,8 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from string import punctuation
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 nltk.download('punkt')
 nltk.download('wordnet')
@@ -88,3 +90,49 @@ def remove_punctuation(tokens: Tokens) -> Tokens:
 
 def lemmatization(tokens: Tokens) -> Tokens:
     return [LEMMATIZER.lemmatize(token) for token in tokens]
+
+
+def vectorize(tokenized_docs: TokenizedDocuments) -> np.ndarray:
+    """
+    Vectorize documents using TfidfVectorizer and sort by IDF weights and docs length
+    :param tokenized_docs:
+    :return:
+    """
+    # extract docs
+    cleaned_docs = [doc.tokens for doc in tokenized_docs]
+
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(cleaned_docs)
+
+    # sort documents by IDF weights
+    tfidf_mat_sort_idf = sort_by_idf(tfidf_matrix, vectorizer)
+    # sort documents by length
+    tfidf_mat_sort_length = sort_by_doc_length(tfidf_mat_sort_idf)
+
+    return tfidf_mat_sort_length
+
+
+def sort_by_idf(tfidf_matrix: np.ndarray, vectorizer: TfidfVectorizer) -> np.ndarray:
+    """
+    Sort the documents by IDF weights in ascending order
+    :param tfidf_matrix:
+    :param vectorizer:
+    :return:
+    """
+    idf_permutation = np.argsort(vectorizer.idf_)
+    tfidf_matrix_sorted_idf = tfidf_matrix[:, idf_permutation]
+
+    return tfidf_matrix_sorted_idf
+
+
+def sort_by_doc_length(tfidf_matrix: np.ndarray) -> np.ndarray:
+    """
+    Sort the documents by length in descending order
+    :param tfidf_matrix:
+    :return:
+    """
+    doc_lengths = np.sum(tfidf_matrix, axis=1).flatten()
+    length_permutation = np.argsort(doc_lengths)[::-1]
+    tfidf_matrix_sorted_length = tfidf_matrix[length_permutation, :]
+
+    return tfidf_matrix_sorted_length
