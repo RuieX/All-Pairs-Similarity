@@ -7,6 +7,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from string import punctuation
 import numpy as np
+from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 nltk.download('punkt')
@@ -93,7 +94,7 @@ def lemmatization(tokens: Tokens) -> Tokens:
     return [LEMMATIZER.lemmatize(token) for token in tokens]
 
 
-def vectorize(tokenized_docs: TokenizedDocuments) -> Tuple[np.ndarray, float]:
+def vectorize(tokenized_docs: TokenizedDocuments) -> Tuple[csr_matrix, float]:
     """
     Vectorize documents using TfidfVectorizer and sort by IDF weights and docs length, also returns execution time
     :param tokenized_docs:
@@ -115,7 +116,7 @@ def vectorize(tokenized_docs: TokenizedDocuments) -> Tuple[np.ndarray, float]:
     return tfidf_mat_sort_length, time_taken
 
 
-def sort_by_idf(tfidf_matrix: np.ndarray, vectorizer: TfidfVectorizer) -> np.ndarray:
+def sort_by_idf(tfidf_matrix: csr_matrix, vectorizer: TfidfVectorizer) -> csr_matrix:
     """
     Sort the documents by IDF weights in ascending order
     :param tfidf_matrix:
@@ -128,7 +129,7 @@ def sort_by_idf(tfidf_matrix: np.ndarray, vectorizer: TfidfVectorizer) -> np.nda
     return tfidf_matrix_sorted_idf
 
 
-def sort_by_doc_length(tfidf_matrix: np.ndarray) -> np.ndarray:
+def sort_by_doc_length(tfidf_matrix: csr_matrix) -> csr_matrix:
     """
     Sort the documents by length in descending order
     :param tfidf_matrix:
