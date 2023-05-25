@@ -1,5 +1,6 @@
 from typing import Sequence, Type, List, Dict, Tuple, NamedTuple
 from tqdm import tqdm
+import time
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -92,9 +93,9 @@ def lemmatization(tokens: Tokens) -> Tokens:
     return [LEMMATIZER.lemmatize(token) for token in tokens]
 
 
-def vectorize(tokenized_docs: TokenizedDocuments) -> np.ndarray:
+def vectorize(tokenized_docs: TokenizedDocuments) -> Tuple[np.ndarray, float]:
     """
-    Vectorize documents using TfidfVectorizer and sort by IDF weights and docs length
+    Vectorize documents using TfidfVectorizer and sort by IDF weights and docs length, also returns execution time
     :param tokenized_docs:
     :return:
     """
@@ -102,14 +103,16 @@ def vectorize(tokenized_docs: TokenizedDocuments) -> np.ndarray:
     cleaned_docs = [doc.tokens for doc in tokenized_docs]
 
     vectorizer = TfidfVectorizer()
+    start_time = time.time()
     tfidf_matrix = vectorizer.fit_transform(cleaned_docs)
+    time_taken = time.time() - start_time
 
     # sort documents by IDF weights
     tfidf_mat_sort_idf = sort_by_idf(tfidf_matrix, vectorizer)
     # sort documents by length
     tfidf_mat_sort_length = sort_by_doc_length(tfidf_mat_sort_idf)
 
-    return tfidf_mat_sort_length
+    return tfidf_mat_sort_length, time_taken
 
 
 def sort_by_idf(tfidf_matrix: np.ndarray, vectorizer: TfidfVectorizer) -> np.ndarray:
