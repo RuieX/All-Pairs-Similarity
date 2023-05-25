@@ -41,3 +41,33 @@ def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
         i, j, sim = pair
         mapped_pairs.append((doc_idx_to_id[i], doc_idx_to_id[j], sim))
     return mapped_pairs
+
+
+def print_results(all_seq_results, sample_name):
+    for (sim_pairs, sp_id, sp_info) in all_seq_results[sample_name]:
+        print("--Run info--")
+        for key, value in sp_info.items():
+            print(f"{key}: {value}")
+        print("--first 10 pairs--")
+        for i in range(10):
+            doc1, doc2, similarity = sp_id[i]
+            print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+        print()
+
+
+def print_pairs(all_seq_results, sample_name, tokenized_docs):
+    # map indices of the documents with the given id
+    doc_id_to_idx = {d.text_id: i for i, d in enumerate(tokenized_docs)}
+
+    for (sim_pairs, sp_id, sp_info) in all_seq_results[sample_name]:
+        for i in range(1):
+            doc1, doc2, similarity = sp_id[i]
+            print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+            print()
+            print(f"{doc1}:")
+            print(tokenized_docs[doc_id_to_idx[doc1]].tokens)
+            print()
+            print(f"{doc2}:")
+            print(tokenized_docs[doc_id_to_idx[doc2]].tokens)
+            print()
+    print()
