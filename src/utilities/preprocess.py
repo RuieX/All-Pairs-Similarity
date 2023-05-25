@@ -135,7 +135,7 @@ def sort_by_doc_length(tfidf_matrix: csr_matrix) -> csr_matrix:
     :param tfidf_matrix:
     :return:
     """
-    doc_lengths = np.sum(tfidf_matrix, axis=1).flatten()
+    doc_lengths = np.asarray(tfidf_matrix.sum(axis=1)).flatten()
     length_permutation = np.argsort(doc_lengths)[::-1]
     tfidf_matrix_sorted_length = tfidf_matrix[length_permutation, :]
 

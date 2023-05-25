@@ -4,14 +4,20 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, threshold: float):
+    """
+    Compute all pairs document similarity using cosine similarity and thresholding
+    :param tfidf_matrix:
+    :param sample_name:
+    :param threshold:
+    :return:
+    """
     similar_pairs = []
-    n_docs = len(tfidf_matrix)
+    n_docs = tfidf_matrix.shape[0]
 
     # Compute pairwise cosine similarities
     start = time.time()
     similarity_matrix = cosine_similarity(tfidf_matrix)
-    end = time.time()
-    cosine_time = end-start
+    cosine_time = time.time() - start
 
     # Find pairs of similar documents
     start = time.time()
@@ -20,8 +26,7 @@ def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, thres
             docs_sim = similarity_matrix[i, j]
             if docs_sim >= threshold:
                 similar_pairs.append((i, j, docs_sim))
-    end = time.time()
-    find_time = end-start
+    find_time = time.time() - start
 
     return similar_pairs, {'sample_name': sample_name,
                            'threshold': threshold,
