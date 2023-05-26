@@ -55,19 +55,21 @@ def print_results(all_seq_results, sample_name):
         print()
 
 
-def print_pairs(all_seq_results, sample_name, tokenized_docs):
-    # map indices of the documents with the given id
-    doc_id_to_idx = {d.text_id: i for i, d in enumerate(tokenized_docs)}
-
+def print_pairs(all_seq_results, sample_name, tokenized_samples):
+    tokenized_docs = []
+    for name, docs, _ in tokenized_samples:
+        if name == sample_name:
+            tokenized_docs = docs
     for (sim_pairs, sp_id, sp_info) in all_seq_results[sample_name]:
         for i in range(1):
             doc1, doc2, similarity = sp_id[i]
+            doc1_idx, doc2_idx, _ = sim_pairs[i]
             print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
             print()
             print(f"{doc1}:")
-            print(tokenized_docs[doc_id_to_idx[doc1]].tokens)
+            print(tokenized_docs[doc1_idx].tokens)
             print()
             print(f"{doc2}:")
-            print(tokenized_docs[doc_id_to_idx[doc2]].tokens)
+            print(tokenized_docs[doc2_idx].tokens)
             print()
     print()
