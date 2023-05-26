@@ -4,3 +4,4 @@ data/trec-covid.zip
 *.tsv
 *.pkl
 src.zip
+*.csv
