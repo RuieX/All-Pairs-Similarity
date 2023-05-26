@@ -48,10 +48,14 @@ def print_results(all_seq_results, sample_name):
         print("--Run info--")
         for key, value in sp_info.items():
             print(f"{key}: {value}")
-        print("--first 10 pairs--")
-        for i in range(10):
-            doc1, doc2, similarity = sp_id[i]
-            print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+        print("--Similarity pairs--")
+        if len(sp_id) < 5:
+            for doc1, doc2, similarity in sp_id:
+                print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+        else:
+            for i in range(5):
+                doc1, doc2, similarity = sp_id[i]
+                print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
         print()
 
 
@@ -61,9 +65,9 @@ def print_pairs(all_seq_results, sample_name, tokenized_samples):
         if name == sample_name:
             tokenized_docs = docs
     for (sim_pairs, sp_id, sp_info) in all_seq_results[sample_name]:
-        for i in range(1):
-            doc1, doc2, similarity = sp_id[i]
-            doc1_idx, doc2_idx, _ = sim_pairs[i]
+        if sp_id:
+            doc1, doc2, similarity = sp_id[0]
+            doc1_idx, doc2_idx, _ = sim_pairs[0]
             print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
             print()
             print(f"{doc1}:")
@@ -72,4 +76,6 @@ def print_pairs(all_seq_results, sample_name, tokenized_samples):
             print(f"{doc2}:")
             print(tokenized_docs[doc2_idx].tokens)
             print()
+        else:
+            print("There are 0 pairs")
     print()
