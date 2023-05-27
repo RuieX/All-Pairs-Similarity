@@ -3,7 +3,7 @@ from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def sequential_APDS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
+def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
     """
     Compute all pairs document similarity using cosine similarity and threshold
     :param tfidf_matrix:
