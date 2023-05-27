@@ -3,7 +3,7 @@ from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, threshold: float):
+def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
     """
     Compute all pairs document similarity using cosine similarity and thresholding
     :param tfidf_matrix:
@@ -31,8 +31,10 @@ def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, thres
     return similar_pairs, {'sample_name': sample_name,
                            'threshold': threshold,
                            'pairs_count': len(similar_pairs),
+                           'tfidf_time': tfidf_time,
                            'cosine_time': cosine_time,
-                           'find_time': find_time}
+                           'find_time': find_time,
+                           'total_time': tfidf_time+cosine_time+find_time}
 
 
 def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
@@ -48,18 +50,18 @@ def print_results(all_seq_results, sample_name):
         print("--Run info--")
         for key, value in sp_info.items():
             print(f"{key}: {value}")
-        print("--Similarity pairs--")
-        if len(sp_id) < 5:
-            for doc1, doc2, similarity in sp_id:
-                print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
-        else:
-            for i in range(5):
-                doc1, doc2, similarity = sp_id[i]
-                print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+        # print("--Similarity pairs--")
+        # if len(sp_id) < 5:
+        #     for doc1, doc2, similarity in sp_id:
+        #         print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
+        # else:
+        #     for i in range(5):
+        #         doc1, doc2, similarity = sp_id[i]
+        #         print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
         print()
 
 
-def print_pairs(all_seq_results, sample_name, tokenized_samples):
+def print_first_pair(all_seq_results, sample_name, tokenized_samples):
     tokenized_docs = []
     for name, docs, _ in tokenized_samples:
         if name == sample_name:
