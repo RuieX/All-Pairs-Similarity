@@ -3,12 +3,13 @@ from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def compute_all_pairs_docs_sim(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
+def sequential_APDS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
     """
-    Compute all pairs document similarity using cosine similarity and thresholding
+    Compute all pairs document similarity using cosine similarity and threshold
     :param tfidf_matrix:
     :param sample_name:
     :param threshold:
+    :param tfidf_time:
     :return:
     """
     similar_pairs = []
