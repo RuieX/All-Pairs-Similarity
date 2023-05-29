@@ -25,7 +25,7 @@ MASTER_HOST = "localhost"
 def spark_apds(
         ds_name: str,
         tfidf_mat: csr_matrix,
-        idx_to_id: dict,
+        idx_to_id: Dict,
         threshold: float,
         n_executors: int,
         n_slices: int,

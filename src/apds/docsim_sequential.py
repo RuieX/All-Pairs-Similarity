@@ -1,14 +1,65 @@
 import os
 import csv
 import time
+import pickle
 from typing import Tuple, List, Dict
+from tqdm import tqdm
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from itertools import combinations
 
 
-def sequential_DAPS(
-        tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time, heuristic: bool = False
+def exec_seq_apds(
+        tfidf_docs: List[Tuple[str, csr_matrix, float, Dict]],
+        thresholds: List[float],
+        seq_results_path: str,
+        samples_dir: str,
+        heuristic: bool = False) -> Dict:
+    """
+    wrapper function to increase readability in the notebook
+    execute the sequential algorithm
+    :param tfidf_docs:
+    :param thresholds:
+    :param seq_results_path:
+    :param samples_dir:
+    :param heuristic:
+    :return:
+    """
+    all_seq_results = {}
+
+    if not os.path.exists(seq_results_path):
+        for name, vectorized_docs, tfidf_time, idx_to_id in tqdm(tfidf_docs):
+            seq_results = []
+            for threshold in thresholds:
+                similar_pairs, information = sequential_apds(tfidf_matrix=vectorized_docs,
+                                                             sample_name=name,
+                                                             threshold=threshold,
+                                                             tfidf_time=tfidf_time,
+                                                             heuristic=heuristic)
+                mapped_pairs = map_doc_idx_to_id(similar_pairs, idx_to_id)
+                seq_results.append((similar_pairs, mapped_pairs, information))
+                save_seq_result_csv(all_pairs=mapped_pairs,
+                                    ds_name=name,
+                                    threshold=threshold,
+                                    samples_dir=samples_dir,
+                                    heuristic=heuristic)
+            all_seq_results[name] = seq_results
+
+        with open(seq_results_path, "wb") as f:
+            pickle.dump(all_seq_results, f)
+    else:
+        with open(seq_results_path, "rb") as f:
+            all_seq_results = pickle.load(f)
+
+    return all_seq_results
+
+
+def sequential_apds(
+        tfidf_matrix: csr_matrix,
+        sample_name: str,
+        threshold: float,
+        tfidf_time,
+        heuristic: bool = False
 ) -> Tuple[List[Tuple[int, int, float]], Dict[str, object]]:
     """
     Compute all pairs document similarity using cosine similarity and threshold
@@ -58,11 +109,12 @@ def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
     return mapped_pairs
 
 
-def save_seq_result_csv(all_pairs: List[Tuple[str, str, float]],
-                        ds_name: str,
-                        threshold: float,
-                        samples_dir: str,
-                        heuristic: bool = False) -> None:
+def save_seq_result_csv(
+        all_pairs: List[Tuple[str, str, float]],
+        ds_name: str,
+        threshold: float,
+        samples_dir: str,
+        heuristic: bool = False) -> None:
     """
     save the document pairs and their similarity sorted by their similarity as a .csv file
     :param all_pairs: list of unique similar pair with the similarity
