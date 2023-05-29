@@ -85,30 +85,6 @@ def spark_apds(ds_name: str,
                     res.append((id1, id2, sim))
         return res
 
-    # Reduce with heuristic
-    def _apds_reduce_h(pair: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
-        """
-        PURPOSE: apply reduce to the RDD
-        ARGUMENTS:
-            - pair (Tuple[int, List[Tuple[int, np.ndarray]]]):
-                tuple of termid, list of pairs of docid and TF-IDF np.ndarray
-        RETURN:
-            - (List[Tuple[int, int, float]]):
-                   list of tuples of termid and docid_1, docid_2 and similarity
-        """
-        term, tf_idf_list = pair
-        res = []
-        # Use itertools.combinations to perform smart nested for loop
-        for (id1, d1), (id2, d2) in itertools.combinations(tf_idf_list, 2):
-            # HEURISTIC - skip if too-high length mismatch
-            # if len(d1) / len(d2) > 1.5:
-            #     break
-            if term == np.max(np.intersect1d(np.nonzero(d1), np.nonzero(d2))):
-                sim = cosine_similarity([d1], [d2])[0][0]
-                if sim >= sc_treshold.value:
-                    res.append((id1, id2, sim))
-        return res
-
     def _compute_b_d(docs: np.ndarray, d_star: np.ndarray, threshold: float) -> Dict[int, int]:
         """
         PURPOSE:
@@ -167,30 +143,18 @@ def spark_apds(ds_name: str,
     #       2. map(compute_similarity)
     #       3. filter(similar_doc)
     # Adding all transformations
-    if heuristic:
-        out = (
-            rdd
-            # perform mapping
-            .flatMap(_apds_map)
-            # combine by key
-            .groupByKey()
-            # perform reduce
-            .flatMap(_apds_reduce)
-            # remove duplicates
-            .distinct()
-        )
-    else:
-        out = (
-            rdd
-            # perform mapping
-            .flatMap(_apds_map)
-            # combine by key
-            .groupByKey()
-            # perform reduce
-            .flatMap(_apds_reduce_h)
-            # remove duplicates
-            .distinct()
-        )
+
+    out = (
+        rdd
+        # perform mapping
+        .flatMap(_apds_map)
+        # combine by key
+        .groupByKey()
+        # perform reduce
+        .flatMap(_apds_reduce)
+        # remove duplicates
+        .distinct()
+    )
 
     start = time.time()
     reduced_results = out.collect()  # Collection the result
