@@ -1,6 +1,6 @@
 import sys
 import os
-from typing import Tuple, Type, List, Dict, Any
+from typing import Tuple, List, Dict
 import numpy as np
 import time
 import itertools
@@ -14,7 +14,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from loguru import logger
 from scipy.sparse import csr_matrix
 
-# Needed to correctly set the python executable of the current conda environment
+# set the python executable of the current conda environment
 os.environ['PYSPARK_PYTHON'] = sys.executable
 os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
 findspark.init()
@@ -22,111 +22,100 @@ findspark.init()
 MASTER_HOST = "localhost"
 
 
-def spark_apds(ds_name: str,
-               sampled_dict: csr_matrix,
-               threshold: float,
-               n_executors: int,
-               n_slices: int,
-               heuristic: bool = False):  # -> Tuple[List[Tuple[str, str, float]], Tuple[str, float, float, int, int]]:
+def spark_apds(
+        ds_name: str,
+        tfidf_mat: csr_matrix,
+        idx_to_id: dict,
+        threshold: float,
+        n_executors: int,
+        n_slices: int,
+        heuristic: bool = False
+) -> Tuple[List[Tuple[int, int, float]], List[Tuple[int, int, float]], Dict[str, object]]:
     """
-    PURPOSE: perform PySpark version of All Pairs Documents Similarity
-    ARGUMENTS:
-        - ds_name (str): Dataset name
-        - sampled_dict (Dict[str, str]): sampled documents
-        - threshold (float): threshold to use
-        - workers (int): number of workers to use
-        - s_factor (int): numSlice factor
-    RETURN:
-        - (Tuple[List[Tuple[str, str, float]], Tuple[str, loat, float, int, int]])
-            - List of tuples of similar unique pair with the relative similarity
-            - [ds_name, elapsed, threshold, uniqie_pairs_sim_docs, workers]
+    Parallelized version of All Pairs Documents Similarity with PySpark and MapReduce
+    :param ds_name: dataset name
+    :param tfidf_mat: tfidf vectorized documents
+    :param idx_to_id: original mapping
+    :param threshold:
+    :param n_executors: number of executors
+    :param n_slices: number of rdd's partitions
+    :param heuristic:
+    :return: tuple containing:
+    document pairs and their similarity, document pairs mapped to the actual document ids,
+    and a dictionary of dataset name, threshold, number of pairs, execution time, n_slices, n_executors
     """
 
-    # Map
-    def _apds_map(pair: Tuple[int, np.ndarray]) -> List[Tuple[int, Tuple[int, np.ndarray]]]:
+    def _apds_map(doc_info: Tuple[int, np.ndarray]) -> List[Tuple[int, Tuple[int, np.ndarray]]]:
         """
-        PURPOSE: apply map to the RDD
-        ARGUMENTS:
-            - pair (Tuple[int, np.ndarray]):
-                   tuple of docid and TF-IDF np.ndarray for the relative document
-        RETURN:
-            - (List[Tuple[int, Tuple[int, np.ndarray]]]):
-                   list of pairs of termid and docid and TF-IDF np.ndarray pair
+        Mapping function
+        :param doc_info: tuple containing the doc_id and the corresponding TF-IDF vector
+        :return: list of key-value pairs:
+                    - key is the term_id
+                    - value is a tuple of doc_id and the corresponding TF-IDF vector
         """
+        doc_id, tfidf_entries = doc_info
+        result = []
 
-        docid, tf_idf_list = pair
-        res = []
-        for id_term in np.nonzero(tf_idf_list)[0]:
-            if id_term > sc_b_d.value[docid]:
-                res.append((id_term, (docid, tf_idf_list)))
-        return res
+        for term_id in np.nonzero(tfidf_entries)[0]:
+            if term_id > b_d.value[doc_id]:
+                result.append((term_id, (doc_id, tfidf_entries)))
+        return result
 
-    # Reduce
-    def _apds_reduce(pair: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
+    def _apds_reduce(term_info: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
         """
-        PURPOSE: apply reduce to the RDD
-        ARGUMENTS:
-            - pair (Tuple[int, List[Tuple[int, np.ndarray]]]):
-                tuple of termid, list of pairs of docid and TF-IDF np.ndarray
-        RETURN:
-            - (List[Tuple[int, int, float]]):
-                   list of tuples of termid and docid_1, docid_2 and similarity
+        Reduce function
+        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF vector
+        :return: list of tuples of doc_id1 and doc_id2, and their similarity
         """
-        term, tf_idf_list = pair
-        res = []
-        # Use itertools.combinations to perform smart nested for loop
-        for (id1, d1), (id2, d2) in itertools.combinations(tf_idf_list, 2):
-            if term == np.max(np.intersect1d(np.nonzero(d1), np.nonzero(d2))):
-                sim = cosine_similarity([d1], [d2])[0][0]
-                if sim >= sc_treshold.value:
-                    res.append((id1, id2, sim))
-        return res
+        term, tfidf_entries = term_info
+        result = []
 
-    # Reduce with heuristic
-    def _apds_reduce_h(pair: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
+        for (doc_id1, doc_1), (doc_id2, doc_2) in itertools.combinations(tfidf_entries, 2):
+            if term == np.max(np.intersect1d(np.nonzero(doc_1), np.nonzero(doc_2))):
+                sim = cosine_similarity([doc_1], [doc_2])[0][0]
+                if sim >= sim_threshold.value:
+                    result.append((doc_id1, doc_id2, sim))
+        return result
+
+    def _apds_reduce_h(term_info: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
         """
-        PURPOSE: apply reduce to the RDD
-        ARGUMENTS:
-            - pair (Tuple[int, List[Tuple[int, np.ndarray]]]):
-                tuple of termid, list of pairs of docid and TF-IDF np.ndarray
-        RETURN:
-            - (List[Tuple[int, int, float]]):
-                   list of tuples of termid and docid_1, docid_2 and similarity
+        Reduce function with heuristic that filters out document pairs that are unlikely to be similar
+        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF vector
+        :return: list of tuples of doc_id1 and doc_id2, and their similarity
         """
-        term, tf_idf_list = pair
-        res = []
-        # Use itertools.combinations to perform smart nested for loop
-        for (id1, d1), (id2, d2) in itertools.combinations(tf_idf_list, 2):
-            # HEURISTIC - skip if too-high length mismatch
-            if len(d1) / len(d2) > 1.5:
+        term, tfidf_entries = term_info
+        result = []
+
+        for (doc_id1, doc_1), (doc_id2, doc_2) in itertools.combinations(tfidf_entries, 2):
+            # Skip comparison if the heuristic is enabled and the length difference is too large
+            if abs(len(doc_1) - len(doc_2)) >= max(len(doc_1), len(doc_2)) / 2:
                 continue
-            if term == np.max(np.intersect1d(np.nonzero(d1), np.nonzero(d2))):
-                sim = cosine_similarity([d1], [d2])[0][0]
-                if sim >= sc_treshold.value:
-                    res.append((id1, id2, sim))
-        return res
+            if term == np.max(np.intersect1d(np.nonzero(doc_1), np.nonzero(doc_2))):
+                sim = cosine_similarity([doc_1], [doc_2])[0][0]
+                if sim >= sim_threshold.value:
+                    result.append((doc_id1, doc_id2, sim))
+        return result
 
-    def _compute_b_d(docs: np.ndarray, d_star: np.ndarray, threshold: float) -> Dict[int, int]:
+    def _compute_b_d(docs: list[tuple[int, np.ndarray]], d_star: np.ndarray, threshold: float) -> Dict[int, int]:
         """
-        PURPOSE:
-        ARGUMENTS:
-            - docs (np.ndarray): TF-IDF matrix
-            - d_star (np.ndarray)
-            - threshold (flaot)
-        RETURN:
-            - (Dict[int, int]) prefix filter result
+        For prefix filter. Given a threshold and d_star, computes the document boundaries
+        :param docs: A NumPy array of tuples, where each tuple contains a doc_id and the corresponding TF-IDF vector
+        :param d_star: maximum document, contains the maximum score of term in any document
+        :param threshold:
+        :return: dictionary of boundaries, where the keys are doc_id
+        and the values are the indices of the largest term in each document right before the threshold is reached.
         """
-
         b_d = {}
-        for doc_id, tfidf_row in docs:
-            temp_product_sum = 0
-            for pos, tfidf_val in enumerate(tfidf_row):
-                temp_product_sum += tfidf_val * d_star[pos]
-                if temp_product_sum >= threshold:
+
+        for doc_id, tfidf_entry in docs:
+            tmp_dot = 0
+            for pos, val in enumerate(tfidf_entry):
+                tmp_dot += val * d_star[pos]
+                if tmp_dot >= threshold:
                     b_d[doc_id] = pos - 1
                     break
             if doc_id not in list(b_d.keys()):
-                b_d[doc_id] = len(tfidf_row) - 1
+                b_d[doc_id] = len(tfidf_entry) - 1
         return b_d
 
     # Create SparkSession
@@ -135,75 +124,56 @@ def spark_apds(ds_name: str,
     # Get sparkContext
     sc = spark.sparkContext
 
-    tfidf_features = sampled_dict.toarray()  # Get the TF-IDF matrix.toarray
+    # sort terms in decreasing order by document frequency
+    tfidf_dense = tfidf_mat.toarray()
+    doc_freq = np.sum(tfidf_dense > 0, axis=0)
+    sorted_doc_freq = np.argsort(doc_freq)[::-1]
+    sorted_tfidf_mat = np.array([row[sorted_doc_freq] for row in tfidf_dense])
 
-    doc_freq = np.sum(tfidf_features > 0, axis=0)  # Compute document frequency
-    dec_doc_freq = np.argsort(doc_freq)[::-1]  # Decreasing order of document frequency
-    # Order the matrix with the index of the decreasing order of document frequency
-    matrix = np.array([row[dec_doc_freq] for row in tfidf_features])
+    # update the original mapping to correspond to the sorted matrix
+    sorted_idx_to_id = {sorted_doc_freq[i]: idx_to_id[i] for i in range(len(sorted_doc_freq))}
 
-    # 1) Zip each document id with its vectorial representation
-    # Computing the list that will feed into the rdd, list of pairs of (docid, tfidf_list)
-    list_pre_rrd = list(zip(range(len(tfidf_features)), matrix))
-    rdd = sc.parallelize(list_pre_rrd, numSlices=n_slices * n_executors).persist()  # Create the RDD
-    # same as this
-    # vectorized_docs_rdd = sc.parallelize(zip(keys, doc_matrix), n_workers * n_slices).persist()
+    # create the RDD: a list of pairs of document id and the corresponding TF-IDF vector
+    processed_mat = list(zip(range(len(sorted_tfidf_mat)), sorted_tfidf_mat))
+    rdd = sc.parallelize(processed_mat, numSlices=n_slices * n_executors).persist()
 
-    # 2) broadcast variables to be used by spark
-    # Broadcasting more efficient than passing it
-    sc_treshold = sc.broadcast(threshold)
+    # broadcast read-only variables
+    sim_threshold = sc.broadcast(threshold)
+    d_star = np.max(sorted_tfidf_mat.T, axis=1)  # computing d*
+    b_d = sc.broadcast(_compute_b_d(processed_mat, d_star, threshold))  # compute b_d
 
-    d_star = np.max(matrix.T, axis=1)  # Computing d*
-    sc_b_d = sc.broadcast(_compute_b_d(list_pre_rrd, d_star, threshold))  # Compute and propagate the b_d
-
-    # 3) Compute with spark:
-    #   1. MAP function using flatMap(MAP).
-    #   2. Group by term id.
-    #   3. REDUCE function using:
-    #       1. flatMap(filter_pairs)
-    #       2. map(compute_similarity)
-    #       3. filter(similar_doc)
-    # Adding all transformations
-    if heuristic:
-        out = (
-            rdd
-            # perform mapping
-            .flatMap(_apds_map)
-            # combine by key
-            .groupByKey()
-            # perform reduce
-            .flatMap(_apds_reduce)
-            # remove duplicates
-            .distinct()
-        )
-    else:
-        out = (
-            rdd
-            # perform mapping
-            .flatMap(_apds_map)
-            # combine by key
-            .groupByKey()
-            # perform reduce
-            .flatMap(_apds_reduce_h)
-            # remove duplicates
-            .distinct()
-        )
+    # define operations on rdd
+    out = (
+        rdd
+        # perform mapping
+        .flatMap(_apds_map)
+        # group by term_id
+        .groupByKey()
+        # perform reduce
+        .flatMap(_apds_reduce_h if heuristic else _apds_reduce)
+        # remove duplicates
+        .distinct()
+    )
 
     start = time.time()
-    reduced_results = out.collect()  # Collection the result
-    end = time.time()
+    reduced_results = out.collect()
+    exec_time = time.time() - start
 
-    spark.stop()  # Stop spark session
+    # Stop spark session
+    spark.stop()
 
-    # doc_keys = list(sampled_dict.keys())  # used in the end to get the ids i think
-
-    # print(f"Dataset: {ds_name} - Threshold: {threshold} - worker and pslit i guess: {n_workers} {n_slices}")
-    # print(f"Exec time: {end - start}")
-    # print(f"Docs {reduced_results}")
-
-    return reduced_results, (end - start)
-    # return [(doc_keys[id1], doc_keys[id2], sim) for (id1, id2, sim) in reduced_results], \
-    #        [ds_name, end - start, threshold, len(reduced_results), n_workers, n_slices]
+    return (
+        reduced_results,
+        [(sorted_idx_to_id[id_1], sorted_idx_to_id[id_2], sim) for (id_1, id_2, sim) in reduced_results],
+        {
+            'sample_name': ds_name,
+            'threshold': threshold,
+            'pairs_count': len(reduced_results),
+            'exec_time': exec_time,
+            'n_slices': n_slices,
+            'n_executors': n_executors
+        }
+    )
 
 
 def create_spark_session(app_name: str) -> SparkSession:
@@ -226,24 +196,26 @@ def create_spark_session(app_name: str) -> SparkSession:
     return spark
 
 
-def create_doc_sim_csv(pairs_list: List[Tuple[str, str, float]], ds_name: str,
-                       threshold: float, workers: int, samples_dir) -> None:
+def save_mr_result_csv(all_pairs: List[Tuple[str, str, float]],
+                       ds_name: str,
+                       threshold: float,
+                       executors: int,
+                       samples_dir: str) -> None:
     """
-    PURPOSE: create the .csv file sotring the list of similar documents pairs with the cosine similarity
-    ARGUMENTS:
-        - pairs_list (List[Tuple[str, str, float]]): list of unique similar pair with the similarity
-        - ds_name: (str): dataset name
-        - threshold (float): used threshold
-        - workers (None | int): number of workers used
-    RETURN: None
+    save the document pairs and their similarity sorted by their similarity as a .csv file
+    :param all_pairs: list of unique similar pair with the similarity
+    :param ds_name: dataset name
+    :param threshold: threshold used
+    :param executors: number of executors used
+    :param samples_dir: directory path of the ds_name sample
+    :return:
     """
-
     save_dir = os.path.join(samples_dir, "mr_result", ds_name, f'{threshold}')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    path = os.path.join(save_dir, f'{workers}_workers.csv')
+    path = os.path.join(save_dir, f'{executors}_workers.csv')
     if not os.path.exists(path):
         with open(path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerows(pairs_list)
+            writer.writerows(all_pairs)

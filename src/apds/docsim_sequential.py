@@ -1,10 +1,15 @@
+import os
+import csv
 import time
+from typing import Tuple, List, Dict
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 from itertools import combinations
 
 
-def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time, heuristic: bool = False):
+def sequential_DAPS(
+        tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time, heuristic: bool = False
+) -> Tuple[List[Tuple[int, int, float]], Dict[str, object]]:
     """
     Compute all pairs document similarity using cosine similarity and threshold
     :param tfidf_matrix:
@@ -42,7 +47,7 @@ def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float
                            'tfidf_time': tfidf_time,
                            'cosine_time': cosine_time,
                            'find_time': find_time,
-                           'total_time': tfidf_time+cosine_time+find_time}
+                           'total_time': tfidf_time + cosine_time + find_time}
 
 
 def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
@@ -51,6 +56,29 @@ def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
         i, j, sim = pair
         mapped_pairs.append((doc_idx_to_id[i], doc_idx_to_id[j], sim))
     return mapped_pairs
+
+
+def save_seq_result_csv(all_pairs: List[Tuple[str, str, float]],
+                        ds_name: str,
+                        threshold: float,
+                        samples_dir: str) -> None:
+    """
+    save the document pairs and their similarity sorted by their similarity as a .csv file
+    :param all_pairs: list of unique similar pair with the similarity
+    :param ds_name: dataset name
+    :param threshold: threshold used
+    :param samples_dir: directory path of the ds_name sample
+    :return:
+    """
+    save_dir = os.path.join(samples_dir, "seq_result", ds_name, f'{threshold}')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    path = os.path.join(save_dir, f'results.csv')
+    if not os.path.exists(path):
+        with open(path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerows(all_pairs)
 
 
 def print_results(all_seq_results, sample_name):
