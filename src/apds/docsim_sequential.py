@@ -1,15 +1,17 @@
 import time
 from scipy.sparse import csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
+from itertools import combinations
 
 
-def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time):
+def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float, tfidf_time, heuristic: bool = False):
     """
     Compute all pairs document similarity using cosine similarity and threshold
     :param tfidf_matrix:
     :param sample_name:
     :param threshold:
     :param tfidf_time:
+    :param heuristic:
     :return:
     """
     similar_pairs = []
@@ -22,11 +24,16 @@ def sequential_DAPS(tfidf_matrix: csr_matrix, sample_name: str, threshold: float
 
     # Find pairs of similar documents
     start = time.time()
-    for i in range(n_docs):
-        for j in range(i+1, n_docs):
-            docs_sim = similarity_matrix[i, j]
-            if docs_sim >= threshold:
-                similar_pairs.append((i, j, docs_sim))
+    for i, j in combinations(range(n_docs), 2):
+        # Skip comparison if the heuristic is enabled and the length difference is too large
+        if heuristic:
+            len_i = len(tfidf_matrix[i].toarray()[0])
+            len_j = len(tfidf_matrix[j].toarray()[0])
+            if abs(len_i - len_j) >= max(len_i, len_j) / 2:
+                continue
+        docs_sim = similarity_matrix[i, j]
+        if docs_sim >= threshold:
+            similar_pairs.append((i, j, docs_sim))
     find_time = time.time() - start
 
     return similar_pairs, {'sample_name': sample_name,

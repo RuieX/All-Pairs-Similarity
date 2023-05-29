@@ -27,7 +27,7 @@ def spark_apds(ds_name: str,
                threshold: float,
                n_executors: int,
                n_slices: int,
-               heuristic: bool):  # -> Tuple[List[Tuple[str, str, float]], Tuple[str, float, float, int, int]]:
+               heuristic: bool = False):  # -> Tuple[List[Tuple[str, str, float]], Tuple[str, float, float, int, int]]:
     """
     PURPOSE: perform PySpark version of All Pairs Documents Similarity
     ARGUMENTS:
@@ -98,8 +98,8 @@ def spark_apds(ds_name: str,
         # Use itertools.combinations to perform smart nested for loop
         for (id1, d1), (id2, d2) in itertools.combinations(tf_idf_list, 2):
             # HEURISTIC - skip if too-high length mismatch
-            # if len(d1) / len(d2) > 1.5:
-            #     break
+            if len(d1) / len(d2) > 1.5:
+                continue
             if term == np.max(np.intersect1d(np.nonzero(d1), np.nonzero(d2))):
                 sim = cosine_similarity([d1], [d2])[0][0]
                 if sim >= sc_treshold.value:
