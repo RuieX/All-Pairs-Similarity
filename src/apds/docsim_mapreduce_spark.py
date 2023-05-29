@@ -200,7 +200,8 @@ def save_mr_result_csv(all_pairs: List[Tuple[str, str, float]],
                        ds_name: str,
                        threshold: float,
                        executors: int,
-                       samples_dir: str) -> None:
+                       samples_dir: str,
+                       heuristic: bool = False) -> None:
     """
     save the document pairs and their similarity sorted by their similarity as a .csv file
     :param all_pairs: list of unique similar pair with the similarity
@@ -208,13 +209,15 @@ def save_mr_result_csv(all_pairs: List[Tuple[str, str, float]],
     :param threshold: threshold used
     :param executors: number of executors used
     :param samples_dir: directory path of the ds_name sample
+    :param heuristic: if the heuristic was used in computing the pairs
     :return:
     """
     save_dir = os.path.join(samples_dir, "mr_result", ds_name, f'{threshold}')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    path = os.path.join(save_dir, f'{executors}_workers.csv')
+    filename = f'{executors}_workers_h.csv' if heuristic else f'{executors}_workers.csv'
+    path = os.path.join(save_dir, filename)
     if not os.path.exists(path):
         with open(path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
