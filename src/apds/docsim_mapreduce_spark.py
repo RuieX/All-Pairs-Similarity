@@ -195,9 +195,6 @@ def spark_apds(
     sorted_doc_freq = np.argsort(doc_freq)[::-1]
     sorted_tfidf_mat = np.array([row[sorted_doc_freq] for row in tfidf_dense])
 
-    # update the original mapping to correspond to the sorted matrix
-    sorted_idx_to_id = {sorted_doc_freq[i]: idx_to_id[i] for i in range(len(sorted_doc_freq))}
-
     # create the RDD: a list of pairs of document id and the corresponding TF-IDF vector
     processed_mat = list(zip(range(len(sorted_tfidf_mat)), sorted_tfidf_mat))
     rdd = sc.parallelize(processed_mat, numSlices=n_slices * n_executors).persist()
@@ -229,7 +226,7 @@ def spark_apds(
 
     return (
         reduced_results,
-        [(sorted_idx_to_id[id_1], sorted_idx_to_id[id_2], sim) for (id_1, id_2, sim) in reduced_results],
+        [(idx_to_id[id_1], idx_to_id[id_2], sim) for (id_1, id_2, sim) in reduced_results],
         {
             'sample_name': ds_name,
             'threshold': threshold,
