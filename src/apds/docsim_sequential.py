@@ -16,7 +16,7 @@ def exec_seq_apds(
         samples_dir: str,
         heuristic: bool = False) -> Dict:
     """
-    wrapper function to increase readability in the notebook
+    wrapper function to increase readability of the notebook
     execute the sequential algorithm
     :param tfidf_docs:
     :param thresholds:
@@ -58,7 +58,7 @@ def sequential_apds(
         tfidf_matrix: csr_matrix,
         sample_name: str,
         threshold: float,
-        tfidf_time,
+        tfidf_time: float,
         heuristic: bool = False
 ) -> Tuple[List[Tuple[int, int, float]], Dict[str, object]]:
     """

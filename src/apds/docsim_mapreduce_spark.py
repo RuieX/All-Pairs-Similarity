@@ -1,11 +1,13 @@
 import sys
 import os
-from typing import Tuple, List, Dict
 import numpy as np
 import time
+import pickle
 import itertools
 import csv
 import findspark
+from typing import Tuple, List, Dict
+from tqdm import tqdm
 
 from pyspark import SparkFiles
 from pyspark.sql import SparkSession
@@ -22,21 +24,84 @@ findspark.init()
 MASTER_HOST = "localhost"
 
 
+def exec_mr_apds(
+        tfidf_docs: List[Tuple[str, csr_matrix, float, Dict]],
+        thresholds: List[float],
+        n_executors: List[int],
+        n_slices: List[int],
+        mr_results_path: str,
+        samples_dir: str,
+        heuristic: bool = False) -> Dict:
+    """
+    wrapper function to increase readability of the notebook
+    execute the parallel algorithm with spark and MapReduce
+    :param tfidf_docs:
+    :param thresholds:
+    :param n_executors:
+    :param n_slices:
+    :param mr_results_path:
+    :param samples_dir:
+    :param heuristic:
+    :return:
+    """
+    all_mr_results = {}
+
+    if not os.path.exists(mr_results_path):
+        for name, vectorized_docs, tfidf_time, idx_to_id in tqdm(tfidf_docs):
+            mr_results_th = {}
+            for threshold in thresholds:
+                mr_results = []
+                for workers in n_executors:
+                    for slices in n_slices:
+                        print(f'\n----working on {name}, threshold: {threshold}----')
+                        print(f'\n----workers: {workers}, slices: {slices}----')
+
+                        doc_pairs, doc_pairs_id, doc_pairs_info = spark_apds(ds_name=name,
+                                                                             tfidf_mat=vectorized_docs,
+                                                                             idx_to_id=idx_to_id,
+                                                                             threshold=threshold,
+                                                                             tfidf_time=tfidf_time,
+                                                                             n_executors=workers,
+                                                                             n_slices=slices,
+                                                                             heuristic=heuristic)
+                        mr_results.append((doc_pairs, doc_pairs_id, doc_pairs_info))
+                        save_mr_result_csv(all_pairs=doc_pairs_id,
+                                           ds_name=name,
+                                           threshold=threshold,
+                                           executors=workers,
+                                           samples_dir=samples_dir,
+                                           heuristic=heuristic)
+                        print('----Done----')
+                    print('\n')
+                mr_results_th[threshold] = mr_results
+            all_mr_results[name] = mr_results_th
+
+        with open(mr_results_path, "wb") as f:
+            pickle.dump(all_mr_results, f)
+    else:
+        with open(mr_results_path, "rb") as f:
+            all_mr_results = pickle.load(f)
+
+    return all_mr_results
+
+
 def spark_apds(
         ds_name: str,
         tfidf_mat: csr_matrix,
         idx_to_id: Dict,
         threshold: float,
+        tfidf_time: float,
         n_executors: int,
         n_slices: int,
         heuristic: bool = False
-) -> Tuple[List[Tuple[int, int, float]], List[Tuple[int, int, float]], Dict[str, object]]:
+) -> Tuple[List[Tuple[int, int, float]], List[Tuple[str, str, float]], Dict[str, object]]:
     """
     Parallelized version of All Pairs Documents Similarity with PySpark and MapReduce
     :param ds_name: dataset name
     :param tfidf_mat: tfidf vectorized documents
     :param idx_to_id: original mapping
     :param threshold:
+    :param tfidf_time:
     :param n_executors: number of executors
     :param n_slices: number of rdd's partitions
     :param heuristic:
@@ -169,7 +234,9 @@ def spark_apds(
             'sample_name': ds_name,
             'threshold': threshold,
             'pairs_count': len(reduced_results),
+            'tfidf_time': tfidf_time,
             'exec_time': exec_time,
+            'total_time': exec_time + tfidf_time,
             'n_slices': n_slices,
             'n_executors': n_executors
         }
