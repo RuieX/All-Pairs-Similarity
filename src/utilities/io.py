@@ -5,9 +5,9 @@ from beir import util, LoggingHandler
 from beir.datasets.data_loader import GenericDataLoader
 
 import src.utilities.preprocess as pp
-from src.utilities.utils import DEFAULT_DATASET_NAME
 
 DATA_DIR = "../../data"
+DEFAULT_DATASET_NAME: str = "trec-covid"
 
 
 def get_data(dataset_name: str = DEFAULT_DATASET_NAME):
