@@ -110,42 +110,42 @@ def spark_apds(
     and a dictionary of dataset name, threshold, number of pairs, execution time, n_slices, n_executors
     """
 
-    def _apds_map(doc_info: Tuple[int, np.ndarray]) -> List[Tuple[int, Tuple[int, np.ndarray]]]:
+    def _apds_map(doc_info: Tuple[int, csr_matrix]) -> List[Tuple[int, Tuple[int, csr_matrix]]]:
         """
         Mapping function
-        :param doc_info: tuple containing the doc_id and the corresponding TF-IDF vector
+        :param doc_info: tuple containing the doc_id and the corresponding TF-IDF matrix
         :return: list of key-value pairs:
                     - key is the term_id
-                    - value is a tuple of doc_id and the corresponding TF-IDF vector
+                    - value is a tuple of doc_id and the corresponding TF-IDF matrix
         """
-        doc_id, tfidf_entries = doc_info
+        doc_id, tfidf_mat = doc_info
         result = []
 
-        for term_id in np.nonzero(tfidf_entries)[0]:
+        for term_id in tfidf_mat.nonzero()[1]:
             if term_id > b_d.value[doc_id]:
-                result.append((term_id, (doc_id, tfidf_entries)))
+                result.append((term_id, (doc_id, tfidf_mat)))
         return result
 
-    def _apds_reduce(term_info: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
+    def _apds_reduce(term_info: Tuple[int, List[Tuple[int, csr_matrix]]]) -> List[Tuple[int, int, float]]:
         """
         Reduce function
-        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF vector
+        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF matrix
         :return: list of tuples of doc_id1 and doc_id2, and their similarity
         """
         term, tfidf_entries = term_info
         result = []
 
         for (doc_id1, doc_1), (doc_id2, doc_2) in itertools.combinations(tfidf_entries, 2):
-            if term == np.max(np.intersect1d(np.nonzero(doc_1), np.nonzero(doc_2))):
-                sim = cosine_similarity([doc_1], [doc_2])[0][0]
+            if term == max(set(doc_1.nonzero()[1]) & set(doc_2.nonzero()[1])):
+                sim = cosine_similarity(doc_1, doc_2)[0][0]
                 if sim >= sim_threshold.value:
                     result.append((doc_id1, doc_id2, sim))
         return result
 
-    def _apds_reduce_h(term_info: Tuple[int, List[Tuple[int, np.ndarray]]]) -> List[Tuple[int, int, float]]:
+    def _apds_reduce_h(term_info: Tuple[int, List[Tuple[int, csr_matrix]]]) -> List[Tuple[int, int, float]]:
         """
         Reduce function with heuristic that filters out document pairs that are unlikely to be similar
-        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF vector
+        :param term_info: tuple of term_id, and list of doc_id and corresponding TF-IDF matrix
         :return: list of tuples of doc_id1 and doc_id2, and their similarity
         """
         term, tfidf_entries = term_info
@@ -153,18 +153,18 @@ def spark_apds(
 
         for (doc_id1, doc_1), (doc_id2, doc_2) in itertools.combinations(tfidf_entries, 2):
             # Skip comparison if the heuristic is enabled and the length difference is too large
-            if abs(len(doc_1) - len(doc_2)) >= max(len(doc_1), len(doc_2)) / 2:
+            if abs(doc_1.shape[1] - doc_2.shape[1]) >= max(doc_1.shape[1], doc_2.shape[1]) / 2:
                 continue
-            if term == np.max(np.intersect1d(np.nonzero(doc_1), np.nonzero(doc_2))):
-                sim = cosine_similarity([doc_1], [doc_2])[0][0]
+            if term == max(set(doc_1.nonzero()[1]) & set(doc_2.nonzero()[1])):
+                sim = cosine_similarity(doc_1, doc_2)[0][0]
                 if sim >= sim_threshold.value:
                     result.append((doc_id1, doc_id2, sim))
         return result
 
-    def _compute_b_d(docs: list[tuple[int, np.ndarray]], d_star: np.ndarray, threshold: float) -> Dict[int, int]:
+    def _compute_b_d(docs: List[Tuple[int, csr_matrix]], d_star: csr_matrix, threshold: float) -> Dict[int, int]:
         """
         For prefix filter. Given a threshold and d_star, computes the document boundaries
-        :param docs: A NumPy array of tuples, where each tuple contains a doc_id and the corresponding TF-IDF vector
+        :param docs: A list of tuples, where each tuple contains a doc_id and the corresponding TF-IDF matrix
         :param d_star: maximum document, contains the maximum score of term in any document
         :param threshold:
         :return: dictionary of boundaries, where the keys are doc_id
@@ -172,24 +172,24 @@ def spark_apds(
         """
         b_d = {}
 
-        for doc_id, tfidf_entry in docs:
+        for doc_id, tfidf_mat in docs:
             tmp_dot = 0
-            for pos, val in enumerate(tfidf_entry):
-                tmp_dot += val * d_star[pos]
+            for pos, val in zip(tfidf_mat.indices, tfidf_mat.data):
+                tmp_dot += val * d_star[0, pos]
                 if tmp_dot >= threshold:
                     b_d[doc_id] = pos - 1
                     break
             if doc_id not in list(b_d.keys()):
-                b_d[doc_id] = len(tfidf_entry) - 1
+                b_d[doc_id] = tfidf_mat.shape[1] - 1
         return b_d
 
-    def _compute_d_star(sorted_mat: np.ndarray) -> np.ndarray:
+    def _compute_d_star(sorted_mat: csr_matrix) -> csr_matrix:
         """
-        For prefix filter, Get ndarray where the i-th entry is the maximum value of the i-th column (term)
+        For prefix filter, Get csr_matrix where the i-th entry is the maximum value of the i-th column (term)
         :param sorted_mat:
         :return:
         """
-        return np.max(sorted_mat.T, axis=1)  # computing d*
+        return csr_matrix(sorted_mat.max(axis=0))
 
     # Create SparkSession
     spark = create_spark_session(app_name="mr_all_pairs_docs_similarity")
@@ -198,13 +198,12 @@ def spark_apds(
     sc = spark.sparkContext
 
     # sort terms in decreasing order by document frequency
-    tfidf_dense = tfidf_mat.toarray()
-    doc_freq = np.sum(tfidf_dense > 0, axis=0)
-    sorted_doc_freq = np.argsort(doc_freq)[::-1]
-    sorted_tfidf_mat = np.array([row[sorted_doc_freq] for row in tfidf_dense])
+    doc_freq = tfidf_mat.astype(bool).sum(axis=0).A1
+    sorted_doc_freq = doc_freq.argsort()[::-1]
+    sorted_tfidf_mat = tfidf_mat[:, sorted_doc_freq]
 
-    # create the RDD: a list of pairs of document id and the corresponding TF-IDF vector
-    processed_mat = list(zip(range(len(sorted_tfidf_mat)), sorted_tfidf_mat))
+    # create the RDD: a list of pairs of document id and the corresponding TF-IDF matrix
+    processed_mat = list(zip(range(len(sorted_tfidf_mat.indptr) - 1), sorted_tfidf_mat))
     rdd = sc.parallelize(processed_mat, numSlices=n_slices * n_executors).persist()
 
     # broadcast read-only variables
@@ -229,23 +228,22 @@ def spark_apds(
     reduced_results = out.collect()
     exec_time = time.time() - start
 
+    doc_pairs_mapped = [(idx_to_id[id_1], idx_to_id[id_2], sim) for (id_1, id_2, sim) in reduced_results]
+    result_dict = {
+        'sample_name': ds_name,
+        'threshold': threshold,
+        'pairs_count': len(reduced_results),
+        'tfidf_time': tfidf_time,
+        'exec_time': exec_time,
+        'total_time': exec_time + tfidf_time,
+        'n_slices': n_slices,
+        'n_executors': n_executors
+    }
+
     # Stop spark session
     spark.stop()
 
-    return (
-        reduced_results,
-        [(idx_to_id[id_1], idx_to_id[id_2], sim) for (id_1, id_2, sim) in reduced_results],
-        {
-            'sample_name': ds_name,
-            'threshold': threshold,
-            'pairs_count': len(reduced_results),
-            'tfidf_time': tfidf_time,
-            'exec_time': exec_time,
-            'total_time': exec_time + tfidf_time,
-            'n_slices': n_slices,
-            'n_executors': n_executors
-        }
-    )
+    return reduced_results, doc_pairs_mapped, result_dict
 
 
 def create_spark_session(app_name: str) -> SparkSession:
