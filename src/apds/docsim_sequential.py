@@ -78,27 +78,34 @@ def sequential_apds(
     similarity_matrix = cosine_similarity(tfidf_matrix)
     cosine_time = time.time() - start
 
+    # all document lengths
+    doc_lengths = tfidf_matrix.sum(axis=1).A1
+
     # Find pairs of similar documents
     start = time.time()
     for i, j in combinations(range(n_docs), 2):
         # Skip comparison if the heuristic is enabled and the length difference is too large
         if heuristic:
-            nnz_i = tfidf_matrix[i].getnnz()
-            nnz_j = tfidf_matrix[j].getnnz()
-            if abs(nnz_i - nnz_j) >= max(nnz_i, nnz_j) / 2:
+            len_i = doc_lengths[i]
+            len_j = doc_lengths[j]
+            if abs(len_i - len_j) >= max(len_i, len_j) / 2:
                 continue
         docs_sim = similarity_matrix[i, j]
         if docs_sim >= threshold:
             similar_pairs.append((i, j, docs_sim))
     find_time = time.time() - start
 
-    return similar_pairs, {'sample_name': sample_name,
-                           'threshold': threshold,
-                           'pairs_count': len(similar_pairs),
-                           'tfidf_time': tfidf_time,
-                           'cosine_time': cosine_time,
-                           'find_time': find_time,
-                           'total_time': tfidf_time + cosine_time + find_time}
+    result_dict = {
+        'sample_name': sample_name,
+        'threshold': threshold,
+        'pairs_count': len(similar_pairs),
+        'tfidf_time': tfidf_time,
+        'cosine_time': cosine_time,
+        'find_time': find_time,
+        'total_time': tfidf_time + cosine_time + find_time
+    }
+
+    return similar_pairs, result_dict
 
 
 def map_doc_idx_to_id(similar_pairs, doc_idx_to_id):
