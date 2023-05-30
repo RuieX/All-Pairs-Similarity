@@ -14,7 +14,7 @@ from pyspark.sql import SparkSession
 from sklearn.metrics.pairwise import cosine_similarity
 
 from loguru import logger
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, vstack
 
 # set the python executable of the current conda environment
 os.environ['PYSPARK_PYTHON'] = sys.executable
@@ -161,7 +161,7 @@ def spark_apds(
                     result.append((doc_id1, doc_id2, sim))
         return result
 
-    def _compute_b_d(docs: list[tuple[int, np.ndarray]], d_star: np.ndarray, threshold: float) -> Dict[int, int]:
+    def _compute_b_d(docs: list[tuple[int, csr_matrix]], d_star: csr_matrix, threshold: float) -> Dict[int, int]:
         """
         For prefix filter. Given a threshold and d_star, computes the document boundaries
         :param docs: A NumPy array of tuples, where each tuple contains a doc_id and the corresponding TF-IDF vector
@@ -174,14 +174,22 @@ def spark_apds(
 
         for doc_id, tfidf_entry in docs:
             tmp_dot = 0
-            for pos, val in enumerate(tfidf_entry):
-                tmp_dot += val * d_star[pos]
+            for pos, val in enumerate(tfidf_entry.data):
+                tmp_dot += val * d_star[0, tfidf_entry.indices[pos]]
                 if tmp_dot >= threshold:
                     b_d[doc_id] = pos - 1
                     break
-            if doc_id not in list(b_d.keys()):
-                b_d[doc_id] = len(tfidf_entry) - 1
+            if doc_id not in b_d.keys():
+                b_d[doc_id] = len(tfidf_entry.data) - 1
         return b_d
+
+    def _compute_d_star(sorted_mat: csr_matrix) -> csr_matrix:
+        """
+        For prefix filter, Gete scr_matrix where the i-th entry is the maximum value of the i-th column (term)
+        :param sorted_mat:
+        :return:
+        """
+        return vstack(sorted_mat.max(axis=0).toarray())
 
     # Create SparkSession
     spark = create_spark_session(app_name="mr_all_pairs_docs_similarity")
@@ -190,18 +198,18 @@ def spark_apds(
     sc = spark.sparkContext
 
     # sort terms in decreasing order by document frequency
-    tfidf_dense = tfidf_mat.toarray()
-    doc_freq = np.sum(tfidf_dense > 0, axis=0)
+    tfidf_array = tfidf_mat.toarray()
+    doc_freq = np.sum(tfidf_array > 0, axis=0)
     sorted_doc_freq = np.argsort(doc_freq)[::-1]
-    sorted_tfidf_mat = np.array([row[sorted_doc_freq] for row in tfidf_dense])
+    sorted_tfidf_mat = tfidf_mat[:, sorted_doc_freq]
 
     # create the RDD: a list of pairs of document id and the corresponding TF-IDF vector
-    processed_mat = list(zip(range(len(sorted_tfidf_mat)), sorted_tfidf_mat))
+    processed_mat = list(zip(range(sorted_tfidf_mat.shape[0]), sorted_tfidf_mat))
     rdd = sc.parallelize(processed_mat, numSlices=n_slices * n_executors).persist()
 
     # broadcast read-only variables
     sim_threshold = sc.broadcast(threshold)
-    d_star = np.max(sorted_tfidf_mat.T, axis=1)  # computing d*
+    d_star = _compute_d_star(sorted_tfidf_mat)  # computing d*
     b_d = sc.broadcast(_compute_b_d(processed_mat, d_star, threshold))  # compute b_d
 
     # define operations on rdd
