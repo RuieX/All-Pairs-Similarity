@@ -189,7 +189,7 @@ def spark_apds(
         :param sorted_mat:
         :return:
         """
-        return vstack(sorted_mat.max(axis=0).toarray())
+        return vstack(np.max(sorted_mat, axis=0))
 
     # Create SparkSession
     spark = create_spark_session(app_name="mr_all_pairs_docs_similarity")
