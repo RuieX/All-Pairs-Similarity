@@ -245,9 +245,9 @@ def create_spark_session(app_name: str) -> SparkSession:
         SparkSession.builder
         .master(f"spark://{MASTER_HOST}:7077")
         .appName(f"{app_name}")
-        # .config("spark.driver.memory", "1g")
+        # .config("spark.driver.memory", "10g")
         # .config("spark.executor.cores", "1")
-        # .config("spark.executor.memory", "1g")
+        # .config("spark.executor.memory", "10g")
         .getOrCreate()
     )
 
