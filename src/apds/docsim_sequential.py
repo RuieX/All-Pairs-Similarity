@@ -83,9 +83,9 @@ def sequential_apds(
     for i, j in combinations(range(n_docs), 2):
         # Skip comparison if the heuristic is enabled and the length difference is too large
         if heuristic:
-            len_i = len(tfidf_matrix[i].toarray()[0])
-            len_j = len(tfidf_matrix[j].toarray()[0])
-            if abs(len_i - len_j) >= max(len_i, len_j) / 2:
+            nnz_i = tfidf_matrix[i].getnnz()
+            nnz_j = tfidf_matrix[j].getnnz()
+            if abs(nnz_i - nnz_j) >= max(nnz_i, nnz_j) / 2:
                 continue
         docs_sim = similarity_matrix[i, j]
         if docs_sim >= threshold:
