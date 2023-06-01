@@ -14,7 +14,6 @@ nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('stopwords')
 
-# Initialize the NLTK lemmatizer and stop words
 LEMMATIZER = WordNetLemmatizer()
 STOPWORDS = set(stopwords.words('english'))
 

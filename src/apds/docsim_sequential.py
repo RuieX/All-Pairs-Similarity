@@ -158,14 +158,6 @@ def print_results(all_seq_results, sample_name):
         print("--Run info--")
         for key, value in sp_info.items():
             print(f"{key}: {value}")
-        # print("--Similarity pairs--")
-        # if len(sp_id) < 5:
-        #     for doc1, doc2, similarity in sp_id:
-        #         print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
-        # else:
-        #     for i in range(5):
-        #         doc1, doc2, similarity = sp_id[i]
-        #         print(f"{doc1} and {doc2} have {similarity:.4f} similarity")
         print()
 
 

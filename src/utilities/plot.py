@@ -7,6 +7,11 @@ from typing import Dict, List, Tuple
 
 
 def plot_results_seq(results_n: Dict[str, List[Tuple]], results_h: Dict[str, List[Tuple]]) -> None:
+    """
+    :param results_n:
+    :param results_h:
+    :return:
+    """
     seq_results_normal = _filter_info_seq(_get_info_seq(results_n))
     seq_results_heuristic = _filter_info_seq(_get_info_seq(results_h))
     plot_seq(seq_results_normal, seq_results_heuristic)
@@ -15,6 +20,8 @@ def plot_results_seq(results_n: Dict[str, List[Tuple]], results_h: Dict[str, Lis
 def _get_info_seq(seq_results: Dict[str, List[Tuple]]) -> Dict[str, List]:
     """
     extract information dictionary from each tuple
+    :param seq_results:
+    :return:
     """
     new_seq_results = {}
     for ds_name, tuples_list in seq_results.items():
@@ -25,6 +32,8 @@ def _get_info_seq(seq_results: Dict[str, List[Tuple]]) -> Dict[str, List]:
 def _filter_info_seq(seq_results: Dict[str, List]) -> Dict[str, List[Dict]]:
     """
     remove unnecessary fields from each information dictionary
+    :param seq_results:
+    :return:
     """
     new_seq_results = {}
     for ds_name, info_list in seq_results.items():
@@ -43,6 +52,9 @@ def _filter_info_seq(seq_results: Dict[str, List]) -> Dict[str, List[Dict]]:
 def plot_seq(seq_results_normal: Dict[str, List[Dict]], seq_results_heuristic: Dict[str, List[Dict]]) -> None:
     """
     plot total time against threshold for all ds_name
+    :param seq_results_normal:
+    :param seq_results_heuristic:
+    :return:
     """
     fig, ax = plt.subplots()
     for ds_name, info_list in seq_results_normal.items():
@@ -58,7 +70,8 @@ def plot_seq(seq_results_normal: Dict[str, List[Dict]], seq_results_heuristic: D
     ax.set_xlabel('Threshold')
     ax.set_ylabel('Total Time')
     ax.set_title('Total Time vs. Threshold by Dataset')
-    ax.legend()
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
     plt.show()
 
 
@@ -66,6 +79,11 @@ def plot_seq(seq_results_normal: Dict[str, List[Dict]], seq_results_heuristic: D
 
 
 def plot_results_mr(results_n: Dict[str, Dict[str, List[Tuple]]], results_h: Dict[str, Dict[str, List[Tuple]]]) -> None:
+    """
+    :param results_n:
+    :param results_h:
+    :return:
+    """
     mr_results = _process_results_mr(results_n)
     mr_results_h = _process_results_mr(results_h)
     thresholds = _get_thresholds_mr(mr_results)
@@ -77,6 +95,10 @@ def plot_results_mr(results_n: Dict[str, Dict[str, List[Tuple]]], results_h: Dic
 
 
 def _process_results_mr(all_mr_results: Dict[str, Dict[str, List[Tuple]]]) -> Dict[str, Dict[str, List]]:
+    """
+    :param all_mr_results:
+    :return:
+    """
     return _group_by_n_execs_mr(_get_info_mr(all_mr_results))
 
 

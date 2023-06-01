@@ -1,6 +1,5 @@
 import os
 import logging
-import json
 from beir import util, LoggingHandler
 from beir.datasets.data_loader import GenericDataLoader
 
@@ -43,20 +42,3 @@ def download_data(dataset_name: str = DEFAULT_DATASET_NAME):
 
 def get_beir_dataset_url(dataset_name: str = DEFAULT_DATASET_NAME):
     return f"https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/{dataset_name}.zip"
-
-
-# def get_sample_data(file_path: str) -> pp.Documents:
-#     sample = {}
-#     with open(file_path, 'r') as f:
-#         for line in f:
-#             data = json.loads(line)
-#             doc_id = data['id']
-#             text = data['text']
-#             sample[doc_id] = pp.Document(doc_id, text)
-#     return sample
-#
-#
-# def save_sample_data(file_path, docs):
-#     with open(file_path, 'w') as f:
-#         for doc_id, doc in docs.items():
-#             f.write(json.dumps({doc_id: {'title': doc['title'], 'text': doc['text']}}) + '\n')
