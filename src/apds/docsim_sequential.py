@@ -62,7 +62,7 @@ def sequential_apds(
         heuristic: bool = False
 ) -> Tuple[List[Tuple[int, int, float]], Dict[str, object]]:
     """
-    Compute all pairs document similarity using cosine similarity and threshold
+    compute all pairs document similarity using cosine similarity and threshold
     :param tfidf_matrix:
     :param sample_name:
     :param threshold:
@@ -73,7 +73,7 @@ def sequential_apds(
     similar_pairs = []
     n_docs = tfidf_matrix.shape[0]
 
-    # Compute pairwise cosine similarities
+    # compute pairwise cosine similarities
     start = time.time()
     similarity_matrix = cosine_similarity(tfidf_matrix)
     cosine_time = time.time() - start
@@ -81,10 +81,10 @@ def sequential_apds(
     # all document lengths
     doc_lengths = tfidf_matrix.sum(axis=1).A1
 
-    # Find pairs of similar documents
+    # find pairs
     start = time.time()
     for i, j in combinations(range(n_docs), 2):
-        # Skip comparison if the heuristic is enabled and the length difference is too large
+        # skip comparison if the heuristic is enabled and the length difference is too large
         if heuristic:
             len_i = doc_lengths[i]
             len_j = doc_lengths[j]
