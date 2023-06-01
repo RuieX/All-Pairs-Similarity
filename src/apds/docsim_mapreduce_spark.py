@@ -292,3 +292,13 @@ def save_mr_result_csv(all_pairs: List[Tuple[str, str, float]],
         with open(path, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerows(all_pairs)
+
+
+def load_mr_results(mr_results_path: str) -> Dict:
+    if not os.path.exists(mr_results_path):
+        raise FileNotFoundError(f"MR results file not found at path: {mr_results_path}")
+    else:
+        with open(mr_results_path, "rb") as f:
+            all_mr_results = pickle.load(f)
+
+    return all_mr_results
