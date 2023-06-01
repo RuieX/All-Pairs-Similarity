@@ -143,6 +143,16 @@ def save_seq_result_csv(
             writer.writerows(all_pairs)
 
 
+def load_results(seq_results_path: str) -> Dict:
+    if not os.path.exists(seq_results_path):
+        raise FileNotFoundError(f"Sequential results file not found at path: {seq_results_path}")
+    else:
+        with open(seq_results_path, "rb") as f:
+            all_seq_results = pickle.load(f)
+
+    return all_seq_results
+
+
 def print_results(all_seq_results, sample_name):
     for (sim_pairs, sp_id, sp_info) in all_seq_results[sample_name]:
         print("--Run info--")

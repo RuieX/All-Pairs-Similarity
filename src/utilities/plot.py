@@ -1,23 +1,86 @@
 import matplotlib.pyplot as plt
 from itertools import groupby
+from typing import Dict, List, Tuple
 
 
-def plot_results(results, results_h):
-    mr_results = _process_results(results)
-    mr_results_h = _process_results(results_h)
-    thresholds = _get_thresholds(mr_results)
-    thresholds_h = _get_thresholds(mr_results_h)
+# -------------------------functions for plotting sequential results-------------------------
+
+
+def plot_results_seq(results_n: Dict[str, List[Tuple]], results_h: Dict[str, List[Tuple]]) -> None:
+    seq_results_normal = _filter_info_seq(_get_info_seq(results_n))
+    seq_results_heuristic = _filter_info_seq(_get_info_seq(results_h))
+    plot_seq(seq_results_normal, seq_results_heuristic)
+
+
+def _get_info_seq(seq_results: Dict[str, List[Tuple]]) -> Dict[str, List]:
+    """
+    extract information dictionary from each tuple
+    """
+    new_seq_results = {}
+    for ds_name, tuples_list in seq_results.items():
+        new_seq_results[ds_name] = [t[2] for t in tuples_list]
+    return new_seq_results
+
+
+def _filter_info_seq(seq_results: Dict[str, List]) -> Dict[str, List[Dict]]:
+    """
+    remove unnecessary fields from each information dictionary
+    """
+    new_seq_results = {}
+    for ds_name, info_list in seq_results.items():
+        new_info_list = []
+        for info in info_list:
+            new_info = {
+                'sample_name': info['sample_name'],
+                'threshold': info['threshold'],
+                'total_time': info['total_time']
+            }
+            new_info_list.append(new_info)
+        new_seq_results[ds_name] = new_info_list
+    return new_seq_results
+
+
+def plot_seq(seq_results_normal: Dict[str, List[Dict]], seq_results_heuristic: Dict[str, List[Dict]]) -> None:
+    """
+    plot total time against threshold for all ds_name
+    """
+    fig, ax = plt.subplots()
+    for ds_name, info_list in seq_results_normal.items():
+        x = [info['threshold'] for info in info_list]
+        y = [info['total_time'] for info in info_list]
+        ax.plot(x, y, marker='o', label=ds_name)
+
+    for ds_name, info_list in seq_results_heuristic.items():
+        x = [info['threshold'] for info in info_list]
+        y = [info['total_time'] for info in info_list]
+        ax.plot(x, y, marker='o', label=ds_name + ' (heuristic)')
+
+    ax.set_xlabel('Threshold')
+    ax.set_ylabel('Total Time')
+    ax.set_title('Total Time vs. Threshold by Dataset')
+    ax.legend()
+    plt.show()
+
+
+# -------------------------functions for plotting parallel with MapReduce and Spark results-------------------------
+
+
+def plot_results_mr(results_n: Dict[str, Dict[str, List[Tuple]]], results_h: Dict[str, Dict[str, List[Tuple]]]) -> None:
+    mr_results = _process_results_mr(results_n)
+    mr_results_h = _process_results_mr(results_h)
+    thresholds = _get_thresholds_mr(mr_results)
+    thresholds_h = _get_thresholds_mr(mr_results_h)
 
     if thresholds != thresholds_h:
         raise ValueError("The two results don't use the same thresholds")
-    plot_threshold_dicts(mr_results, mr_results_h, thresholds)
+    plot_mr(mr_results, mr_results_h, thresholds)
 
 
-def _process_results(all_mr_results):
-    return _group_by_n_execs(_get_info_results(all_mr_results))
+def _process_results_mr(all_mr_results: Dict[str, Dict[str, List[Tuple]]]) -> Dict[str, Dict[str, List]]:
+    return _group_by_n_execs_mr(_get_info_mr(all_mr_results))
 
 
-def _get_info_results(all_mr_results):
+def _get_info_mr(all_mr_results: Dict[str, Dict[str, List[Tuple]]]) -> Dict[str, Dict[str, List]]:
     """
     function to filter out all information not needed for plotting
     :param all_mr_results:
@@ -33,7 +96,7 @@ def _get_info_results(all_mr_results):
     return all_info_results
 
 
-def _group_by_n_execs(all_mr_results):
+def _group_by_n_execs_mr(all_mr_results: Dict[str, Dict[str, List]]) -> Dict[str, Dict[str, List]]:
     """
     function to group the results by n_executors and get the average execution time
     :param all_mr_results:
@@ -66,7 +129,7 @@ def _group_by_n_execs(all_mr_results):
     return new_all_mr_results
 
 
-def _get_thresholds(processed_dict):
+def _get_thresholds_mr(processed_dict: Dict[str, Dict[str, List]]) -> List:
     """
     function to extract the list of unique and sorted thresholds
     :param processed_dict:
@@ -79,7 +142,7 @@ def _get_thresholds(processed_dict):
     return sorted(list(threshold_set))
 
 
-def _extract_threshold_dict(processed_dict, threshold):
+def _extract_threshold_dict_mr(processed_dict: Dict[str, Dict[str, List]], threshold):
     """
     function that given the threshold, extract from each ds_name the value (another dictionary) keyed by given threshold
     :param processed_dict:
@@ -93,11 +156,12 @@ def _extract_threshold_dict(processed_dict, threshold):
     return threshold_dict
 
 
-def plot_threshold_dicts(normal_dict, heuristic_dict, threshold_list):
+def plot_mr(normal_dict: Dict[str, Dict[str, List]], heuristic_dict: Dict[str, Dict[str, List]],
+            threshold_list: List) -> None:
     """
-    plot
-    :param normal_dict:
-    :param heuristic_dict:
+    plot the total time against the number of executors for different datasets, for all thresholds
+    :param normal_dict: dictionary containing the normal case data
+    :param heuristic_dict: dictionary containing the heuristic case data
     :param threshold_list:
     :return:
     """
@@ -108,8 +172,8 @@ def plot_threshold_dicts(normal_dict, heuristic_dict, threshold_list):
 
     for i, threshold in enumerate(threshold_list):
         ax = axs[i]
-        threshold_dict_normal = _extract_threshold_dict(normal_dict, threshold)
-        threshold_dict_heuristic = _extract_threshold_dict(heuristic_dict, threshold)
+        threshold_dict_normal = _extract_threshold_dict_mr(normal_dict, threshold)
+        threshold_dict_heuristic = _extract_threshold_dict_mr(heuristic_dict, threshold)
 
         ax.set_title(f"Threshold {threshold}")
         ax.set_xlabel("Number of Executors")
