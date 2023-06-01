@@ -113,7 +113,7 @@ def plot_threshold_dicts(normal_dict, heuristic_dict, threshold_list):
 
         ax.set_title(f"Threshold {threshold}")
         ax.set_xlabel("Number of Executors")
-        ax.set_ylabel("Total Time")
+        ax.set_ylabel("Total Time [seconds]")
 
         for ds_name, ds_data in threshold_dict_normal.items():
             x = []
